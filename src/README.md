@@ -17,8 +17,14 @@ A super simple FastAPI application that allows students to view and sign up for 
 
 2. Run the application:
 
+   From the repository root:
    ```
-   python app.py
+   python src/app.py
+   ```
+
+   Or use Uvicorn directly:
+   ```
+   uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
    ```
 
 3. Open your browser and go to:

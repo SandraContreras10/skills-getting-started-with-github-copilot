@@ -4,14 +4,81 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  function createParticipantList(participants, activityName) {
+    if (!participants.length) {
+      return `<p class="participant-empty">No participants yet.</p>`;
+    }
+
+    return `
+      <ul class="participants-list">
+        ${participants
+          .map(
+            (email) => `
+              <li class="participant-item">
+                <span class="participant-name">${email}</span>
+                <button class="participant-remove" data-activity="${encodeURIComponent(
+                  activityName
+                )}" data-email="${encodeURIComponent(email)}" type="button" aria-label="Unregister ${email}">
+                  &times;
+                </button>
+              </li>`
+          )
+          .join("")}
+      </ul>
+    `;
+  }
+
+  function attachUnregisterHandlers() {
+    document.querySelectorAll(".participant-remove").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const activity = decodeURIComponent(button.dataset.activity);
+        const email = decodeURIComponent(button.dataset.email);
+        await unregisterParticipant(activity, email);
+      });
+    });
+  }
+
+  async function unregisterParticipant(activity, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/participants?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        messageDiv.textContent = result.message;
+        messageDiv.className = "success";
+        fetchActivities();
+      } else {
+        messageDiv.textContent = result.detail || "An error occurred while unregistering.";
+        messageDiv.className = "error";
+      }
+
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
+    } catch (error) {
+      messageDiv.textContent = "Failed to unregister. Please try again.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error unregistering:", error);
+    }
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
       const response = await fetch("/activities");
       const activities = await response.json();
 
-      // Clear loading message
+      // Clear loading message and reset dropdown
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = `<option value="">-- Select an activity --</option>`;
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -25,6 +92,10 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p><strong>Participants:</strong></p>
+            ${createParticipantList(details.participants, name)}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -35,6 +106,8 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+
+      attachUnregisterHandlers();
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
@@ -62,6 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
